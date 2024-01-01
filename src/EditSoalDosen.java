@@ -25,15 +25,15 @@ public class EditSoalDosen extends javax.swing.JFrame {
     
     public class DatabaseConnector {
     // Your database connection details
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/your_database";
-    private static final String DB_USER = "your_username";
-    private static final String DB_PASSWORD = "your_password";
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/quizdb";
+    private static final String DB_USER = "root";
+    private static final String DB_PASSWORD = "";
 
     // SQL query to retrieve all questions
-    private static final String GET_ALL_QUESTIONS_QUERY = "SELECT idsoal, pertanyaan, opsia, opsib, opsic, opsid, jawaban_benar FROM quiz";
+    private static final String GET_ALL_QUESTIONS_QUERY = "SELECT soalid, pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar FROM soal";
 
      // SQL query to update a question
-    private static final String UPDATE_QUESTION_QUERY = "UPDATE quiz SET pertanyaan = ?, opsia = ?, opsib = ?, opsic = ?, opsid = ?, jawaban_benar = ? WHERE idsoal = ?";
+    private static final String UPDATE_QUESTION_QUERY = "UPDATE quiz SET pertanyaan = ?, opsia = ?, opsib = ?, opsic = ?, opsid = ?, jawabanbenar = ? WHERE soalid = ?";
 
     // Method to get all questions from the database
     public List<Question> getAllQuestions() {
@@ -44,14 +44,14 @@ public class EditSoalDosen extends javax.swing.JFrame {
              ResultSet resultSet = statement.executeQuery()) {
 
             while (resultSet.next()) {
-                int id = resultSet.getInt("idsoal");
+                int id = resultSet.getInt("soalid");
                 String questionText = resultSet.getString("pertanyaan");
                 String answerOptions = String.join("|", 
                         resultSet.getString("opsia"), 
                         resultSet.getString("opsib"), 
                         resultSet.getString("opsic"), 
                         resultSet.getString("opsid"));
-                String correctAnswer = resultSet.getString("jawaban_benar");
+                String correctAnswer = resultSet.getString("jawabanbenar");
 
                 Question question = new Question(id, questionText, answerOptions, correctAnswer);
                 questionList.add(question);
@@ -111,10 +111,10 @@ public class EditSoalDosen extends javax.swing.JFrame {
     }
 
     private void loadSelectedQuestion() {
-        Object selectedValue = jList1.getSelectedValue();
+        int selectedIndex = jList1.getSelectedIndex();
 
-        if (selectedValue instanceof Question) {
-            selectedQuestion = (Question) selectedValue;
+        if (selectedIndex != -1) {
+            selectedQuestion = dbConnector.getAllQuestions().get(selectedIndex);
 
             jTextField1.setText(selectedQuestion.getQuestionText());
             String[] answerOptions = selectedQuestion.getAnswerOptions().split("\\|");
@@ -154,14 +154,11 @@ public class EditSoalDosen extends javax.swing.JFrame {
     public static void main(String args[]) {
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new EditSoalQuizGUI().setVisible(true);
+                new EditSoalDosen().setVisible(true);
             }
         });
     }
-
-
     
-
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
