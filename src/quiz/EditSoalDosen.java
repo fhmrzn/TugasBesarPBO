@@ -19,7 +19,6 @@ public class EditSoalDosen extends javax.swing.JFrame {
     private int kelasid;
     private int quizid;
     
-    
     public EditSoalDosen(int kelasid, int quizid) {
         initComponents();
         dbConnector = new DatabaseConnector();
@@ -30,73 +29,80 @@ public class EditSoalDosen extends javax.swing.JFrame {
     }
     
     public class DatabaseConnector {
-    // Your database connection details
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/quizdb";
-    private static final String DB_USER = "root";
-    private static final String DB_PASSWORD = "";
+        private static final String DB_URL = "jdbc:mysql://localhost:3306/quizdb";
+        private static final String DB_USER = "root";
+        private static final String DB_PASSWORD = "";
+        
+        private static final String GET_ALL_QUESTIONS_QUERY = "SELECT soalid, pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar, kelasid, kuisid, nomorsoal FROM soal WHERE kuisid = ? AND kelasid = ?";
+        private static final String UPDATE_QUESTION_QUERY = "UPDATE soal SET pertanyaan = ?, opsia = ?, opsib = ?, opsic = ?, opsid = ?, jawabanbenar = ?, kuisid = ?, kelasid = ?, nomorsoal = ? WHERE soalid = ?";
+        
+        public List<Question> getAllQuestions(int quizid, int kelasid) {
+            List<Question> questionList = new ArrayList<>();
 
-    // SQL query to retrieve all questions
-    private static final String GET_ALL_QUESTIONS_QUERY = "SELECT soalid, pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar, kelasid, kuisid FROM soal WHERE kuisid = ? AND kelasid = ?";
+            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+                 PreparedStatement statement = connection.prepareStatement(GET_ALL_QUESTIONS_QUERY)) {
 
+                statement.setInt(1, quizid);
+                statement.setInt(2, kelasid);
 
-     // SQL query to update a question
-    private static final String UPDATE_QUESTION_QUERY = "UPDATE soal SET pertanyaan = ?, opsia = ?, opsib = ?, opsic = ?, opsid = ?, jawabanbenar = ?, kuisid = ?, kelasid = ? WHERE soalid = ?";
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    while (resultSet.next()) {
+                        int id = resultSet.getInt("soalid");
+                        String questionText = resultSet.getString("pertanyaan");
+                        String answerOptions = String.join("|",
+                                resultSet.getString("opsia"),
+                                resultSet.getString("opsib"),
+                                resultSet.getString("opsic"),
+                                resultSet.getString("opsid"));
+                        String correctAnswer = resultSet.getString("jawabanbenar");
+                        int kelasId = resultSet.getInt("kelasid");
+                        int quizId = resultSet.getInt("kuisid");
+                        int nomorsoal = resultSet.getInt("nomorsoal");
 
-    // Method to get all questions from the database
-    public List<Question> getAllQuestions(int quizid, int kelasid) {
-        List<Question> questionList = new ArrayList<>();
-
-        try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-             PreparedStatement statement = connection.prepareStatement(GET_ALL_QUESTIONS_QUERY)) {
-
-            statement.setInt(1, quizid);
-            statement.setInt(2, kelasid);
-
-            try (ResultSet resultSet = statement.executeQuery()) {
-                while (resultSet.next()) {
-                    int id = resultSet.getInt("soalid");
-                    String questionText = resultSet.getString("pertanyaan");
-                    String answerOptions = String.join("|", 
-                            resultSet.getString("opsia"), 
-                            resultSet.getString("opsib"), 
-                            resultSet.getString("opsic"), 
-                            resultSet.getString("opsid"));
-                    String correctAnswer = resultSet.getString("jawabanbenar");
-                    int kelasId = resultSet.getInt("kelasid");
-                    int quizId = resultSet.getInt("kuisid");
-
-                    Question question = new Question(id, questionText, answerOptions, correctAnswer, kelasId, quizId);
-                    questionList.add(question);
+                        Question question = new Question(id, questionText, answerOptions, correctAnswer, kelasId, quizId, nomorsoal);
+                        questionList.add(question);
+                    }
                 }
+
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
 
-        } catch (SQLException e) {
-            e.printStackTrace();  // Handle the exception appropriately
+            return questionList;
         }
+        public void updateQuestion(Question question) {
+            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+                 PreparedStatement statement = connection.prepareStatement(UPDATE_QUESTION_QUERY)) {
 
-        return questionList;
-    }
-    public void updateQuestion(Question question) {
-        try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-             PreparedStatement statement = connection.prepareStatement(UPDATE_QUESTION_QUERY)) {
+                statement.setString(1, question.getQuestionText());
+                String[] answerOptions = question.getAnswerOptions().split("\\|");
+                statement.setString(2, answerOptions[0]);
+                statement.setString(3, answerOptions[1]);
+                statement.setString(4, answerOptions[2]);
+                statement.setString(5, answerOptions[3]);
+                statement.setString(6, question.getCorrectAnswer());
+                statement.setInt(7, question.getQuizid());
+                statement.setInt(8, question.getKelasid());
+                statement.setInt(9, question.getNomorsoal()); 
+                statement.setInt(10, question.getId());
 
-            statement.setString(1, question.getQuestionText());
-            String[] answerOptions = question.getAnswerOptions().split("\\|");
-            statement.setString(2, answerOptions[0]);
-            statement.setString(3, answerOptions[1]);
-            statement.setString(4, answerOptions[2]);
-            statement.setString(5, answerOptions[3]);
-            statement.setString(6, question.getCorrectAnswer());
-            statement.setInt(7, question.getQuizid());
-            statement.setInt(8, question.getKelasid());
-            statement.setInt(9, question.getId());
+                statement.executeUpdate();
 
-            statement.executeUpdate();
-
-        } catch (SQLException e) {
-            e.printStackTrace();  // Handle the exception appropriately
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
         }
-    }
+        public void deleteQuestion(int questionId) {
+            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+                 PreparedStatement statement = connection.prepareStatement("DELETE FROM soal WHERE soalid = ?")) {
+
+                statement.setInt(1, questionId);
+                statement.executeUpdate();
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
     }
     
       private void setupListeners() {
@@ -124,6 +130,11 @@ public class EditSoalDosen extends javax.swing.JFrame {
                 openQuiz();
             }
         });
+        jButton4.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent evt) {
+            deleteSelectedQuestion();
+                }
+        });
     }
 
     private void loadQuestions() {
@@ -131,7 +142,7 @@ public class EditSoalDosen extends javax.swing.JFrame {
         DefaultListModel<String> model = new DefaultListModel<>();
 
         for (Question question : questionList) {
-            model.addElement(String.valueOf(question.getId()));  // Convert Question to String
+            model.addElement(String.valueOf(question.getNomorsoal()));
         }
         jList1.setModel(model);
     }
@@ -154,6 +165,7 @@ public class EditSoalDosen extends javax.swing.JFrame {
             }
         }
     }
+
 
     private void updateQuestion() {
         if (selectedQuestion != null) {
@@ -193,15 +205,22 @@ public class EditSoalDosen extends javax.swing.JFrame {
             }
         });
     }
+    
+    private void deleteSelectedQuestion() {
+        if (selectedQuestion != null) {
+            int response = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this question?", "Confirmation", JOptionPane.YES_NO_OPTION);
+
+            if (response == JOptionPane.YES_OPTION) {
+                int questionId = selectedQuestion.getId();
+                dbConnector.deleteQuestion(questionId);
+                loadQuestions();
+                clearFields();
+            }
+        }
+    }
+    
     public static void main(String args[]) {
-//        java.awt.EventQueue.invokeLater(new Runnable() {
-//            @Override
-//            public void run() {
-//                int kelasid = 1;
-//                int quizid = 1;
-//                new EditSoalDosen(kelasid, quizid).setVisible(true);
-//            }
-//        });
+//        
     }
     
     /**
@@ -225,21 +244,25 @@ public class EditSoalDosen extends javax.swing.JFrame {
         jComboBox1 = new javax.swing.JComboBox<>();
         jButton2 = new javax.swing.JButton();
         jButton3 = new javax.swing.JButton();
+        jButton4 = new javax.swing.JButton();
+        jLabel1 = new javax.swing.JLabel();
+        jLabel2 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
-        jList1.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
         jList1.setFont(new java.awt.Font("Tahoma", 0, 12)); // NOI18N
         jList1.setModel(new javax.swing.AbstractListModel<String>() {
             String[] strings = { "1", "2", "3", "4", "5" };
             public int getSize() { return strings.length; }
             public String getElementAt(int i) { return strings[i]; }
         });
+        jList1.setToolTipText("");
+        jList1.setAlignmentX(0.0F);
         jScrollPane1.setViewportView(jList1);
 
         jButton1.setText("Edit");
 
-        jTextField1.setText("Pertanyaan");
+        jTextField1.setText("isi pertanyaan disini");
         jTextField1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jTextField1ActionPerformed(evt);
@@ -247,6 +270,11 @@ public class EditSoalDosen extends javax.swing.JFrame {
         });
 
         jTextField2.setText("Opsi A");
+        jTextField2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTextField2ActionPerformed(evt);
+            }
+        });
 
         jTextField3.setText("Opsi B");
         jTextField3.addActionListener(new java.awt.event.ActionListener() {
@@ -266,77 +294,100 @@ public class EditSoalDosen extends javax.swing.JFrame {
 
         jComboBox1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Opsi A", "Opsi B", "Opsi C", "Opsi D" }));
 
+        jButton2.setFont(new java.awt.Font("Tahoma", 0, 10)); // NOI18N
         jButton2.setText("+");
+        jButton2.setAlignmentY(0.0F);
         jButton2.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jButton2ActionPerformed(evt);
             }
         });
 
-        jButton3.setText("<-");
+        jButton3.setText("Back");
+        jButton3.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton3ActionPerformed(evt);
+            }
+        });
+
+        jButton4.setText("Delete");
+
+        jLabel1.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        jLabel1.setText("EDIT SOAL");
+
+        jLabel2.setText("Opsi yang benar");
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(jButton4)
+                .addGap(18, 18, 18)
+                .addComponent(jButton1)
+                .addGap(39, 39, 39))
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(46, 46, 46)
-                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, 18)
+                        .addComponent(jButton3)
+                        .addGap(98, 98, 98)
+                        .addComponent(jLabel1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 102, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(6, 6, 6)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(jButton2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(34, 34, 34)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createSequentialGroup()
                                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                                    .addComponent(jTextField5, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 122, Short.MAX_VALUE)
+                                    .addComponent(jTextField5, javax.swing.GroupLayout.Alignment.LEADING)
                                     .addComponent(jTextField4, javax.swing.GroupLayout.Alignment.LEADING)
                                     .addComponent(jTextField3, javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(jTextField2, javax.swing.GroupLayout.Alignment.LEADING))
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, 231, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(0, 36, Short.MAX_VALUE))))
-                    .addGroup(layout.createSequentialGroup()
-                        .addGap(38, 38, 38)
-                        .addComponent(jButton2)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(jButton1)))
-                .addContainerGap(39, Short.MAX_VALUE))
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jButton3)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                    .addComponent(jTextField2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 122, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 105, Short.MAX_VALUE)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING)
+                                    .addComponent(jComboBox1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                            .addComponent(jTextField1))))
+                .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jButton3)
-                .addGap(29, 29, 29)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel1)
+                    .addComponent(jButton3))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 25, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                             .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel2))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(jTextField3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(jTextField3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addGap(10, 10, 10)
                         .addComponent(jTextField4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(jTextField5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGap(13, 13, 13)
+                        .addComponent(jTextField5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(25, 25, 25))
                     .addGroup(layout.createSequentialGroup()
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 28, Short.MAX_VALUE)
-                        .addComponent(jButton1)
-                        .addGap(42, 42, 42))
-                    .addGroup(layout.createSequentialGroup()
-                        .addGap(18, 18, 18)
-                        .addComponent(jButton2)
-                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jButton2)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jButton1)
+                    .addComponent(jButton4))
+                .addGap(42, 42, 42))
         );
 
         pack();
@@ -358,6 +409,14 @@ public class EditSoalDosen extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_jButton2ActionPerformed
 
+    private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jButton3ActionPerformed
+
+    private void jTextField2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField2ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jTextField2ActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -368,7 +427,10 @@ public class EditSoalDosen extends javax.swing.JFrame {
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
     private javax.swing.JButton jButton3;
+    private javax.swing.JButton jButton4;
     private javax.swing.JComboBox<String> jComboBox1;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel2;
     private javax.swing.JList<String> jList1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTextField jTextField1;
@@ -387,14 +449,16 @@ class Question {
     private String correctAnswer;
     private int kelasid;
     private int quizid;
+    private int nomorsoal;
 
-    public Question(int id, String questionText, String answerOptions, String correctAnswer, int kelasid, int quizid) {
+    public Question(int id, String questionText, String answerOptions, String correctAnswer, int kelasid, int quizid, int nomorsoal) {
         this.id = id;
         this.questionText = questionText;
         this.answerOptions = answerOptions;
         this.correctAnswer = correctAnswer;
         this.kelasid = kelasid;
         this.quizid = quizid;
+        this.nomorsoal = nomorsoal;
     }
     
     public int getId() {
@@ -449,4 +513,13 @@ class Question {
     public void setQuizid(int quizid) {
         this.quizid = quizid;
     } 
+
+    public int getNomorsoal() {
+        return nomorsoal;
+    }
+
+    public void setNomorsoal(int nomorsoal) {
+        this.nomorsoal = nomorsoal;
+    }
+    
 }

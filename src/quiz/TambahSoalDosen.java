@@ -31,105 +31,117 @@ public class TambahSoalDosen extends javax.swing.JFrame {
     }
     
     public class DatabaseConnector {
-    // Your database connection details
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/quizdb";
-    private static final String DB_USER = "root";
-    private static final String DB_PASSWORD = "";
+    
+        private static final String DB_URL = "jdbc:mysql://localhost:3306/quizdb";
+        private static final String DB_USER = "root";
+        private static final String DB_PASSWORD = "";
 
-    private static final String GET_ALL_QUESTIONS_QUERY = "SELECT soalid, pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar FROM soal WHERE kuisid = ? AND kelasid = ?";
+        private static final String GET_ALL_QUESTIONS_QUERY = "SELECT soalid, pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar FROM soal WHERE kuisid = ? AND kelasid = ?";
 
-    private static final String INSERT_QUESTION_QUERY = "INSERT INTO soal (pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar, kelasid, kuisid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-// Method to get all questions from the database
-    public List<Question> getAllQuestions(int quizid, int kelasid) {
-        List<Question> questionList = new ArrayList<>();
+        private static final String INSERT_QUESTION_QUERY = "INSERT INTO soal (nomorsoal, pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar, kelasid, kuisid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-             PreparedStatement statement = connection.prepareStatement(GET_ALL_QUESTIONS_QUERY)) {
 
-            statement.setInt(1, quizid);
-            statement.setInt(2, kelasid);
+        public List<Question> getAllQuestions(int quizid, int kelasid) {
+            List<Question> questionList = new ArrayList<>();
 
-            try (ResultSet resultSet = statement.executeQuery()) {
-                while (resultSet.next()) {
-                    int id = resultSet.getInt("soalid");
-                    String questionText = resultSet.getString("pertanyaan");
-                    String answerOptions = String.join("|",
-                            resultSet.getString("opsia"),
-                            resultSet.getString("opsib"),
-                            resultSet.getString("opsic"),
-                            resultSet.getString("opsid"));
-                    String correctAnswer = resultSet.getString("jawabanbenar");
-                    int kelasId = resultSet.getInt("kelasid");
-                    int quizId = resultSet.getInt("kuisid");
+            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+                 PreparedStatement statement = connection.prepareStatement(GET_ALL_QUESTIONS_QUERY)) {
 
-                    Question question = new Question(id, questionText, answerOptions, correctAnswer, kelasId, quizId);
-                    questionList.add(question);
+                statement.setInt(1, quizid);
+                statement.setInt(2, kelasid);
+
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    while (resultSet.next()) {
+                        int id = resultSet.getInt("soalid");
+                        String questionText = resultSet.getString("pertanyaan");
+                        String answerOptions = String.join("|",
+                                resultSet.getString("opsia"),
+                                resultSet.getString("opsib"),
+                                resultSet.getString("opsic"),
+                                resultSet.getString("opsid"));
+                        String correctAnswer = resultSet.getString("jawabanbenar");
+                        int kelasId = resultSet.getInt("kelasid");
+                        int quizId = resultSet.getInt("kuisid");
+                         int nomorsoal = resultSet.getInt("nomorsoal");
+
+                        Question question = new Question(id, questionText, answerOptions, correctAnswer, kelasId, quizId, nomorsoal);
+                        questionList.add(question);
+                    }
                 }
+
+            } catch (SQLException e) {
+                e.printStackTrace(); 
             }
 
-        } catch (SQLException e) {
-            e.printStackTrace();  // Handle the exception appropriately
+            return questionList; 
         }
 
-        return questionList;  // Added this line
-    }
-        
-    public int insertQuestion(Question question) {
-    try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-         PreparedStatement statement = connection.prepareStatement(INSERT_QUESTION_QUERY, Statement.RETURN_GENERATED_KEYS)) {
+        public int insertQuestion(Question question) {
+            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+                 PreparedStatement getMaxNumberStatement = connection.prepareStatement("SELECT MAX(nomorsoal) AS max_number FROM soal WHERE kuisid = ? AND kelasid = ?");
+                 PreparedStatement insertStatement = connection.prepareStatement(INSERT_QUESTION_QUERY, Statement.RETURN_GENERATED_KEYS)) {
+                
+                getMaxNumberStatement.setInt(1, quizid);
+                getMaxNumberStatement.setInt(2, kelasid);
+                
+                try (ResultSet maxNumberResult = getMaxNumberStatement.executeQuery()) {
+                    if (maxNumberResult.next()) {
+                        int maxNumber = maxNumberResult.getInt("max_number");
+                        question.setNomorsoal(maxNumber + 1);
+                    } else {
+                        question.setNomorsoal(1);
+                    }
+                }
+                insertStatement.setInt(1, question.getNomorsoal());
+                insertStatement.setString(2, question.getQuestionText());
+                String[] answerOptions = question.getAnswerOptions().split("\\|");
+                insertStatement.setString(3, answerOptions[0]);
+                insertStatement.setString(4, answerOptions[1]);
+                insertStatement.setString(5, answerOptions[2]);
+                insertStatement.setString(6, answerOptions[3]);
+                insertStatement.setString(7, question.getCorrectAnswer());
+                insertStatement.setInt(8, kelasid);
+                insertStatement.setInt(9, quizid);
 
-        statement.setString(1, question.getQuestionText());
-        String[] answerOptions = question.getAnswerOptions().split("\\|");
-        statement.setString(2, answerOptions[0]);
-        statement.setString(3, answerOptions[1]);
-        statement.setString(4, answerOptions[2]);
-        statement.setString(5, answerOptions[3]);
-        statement.setString(6, question.getCorrectAnswer());
-        statement.setInt(7, kelasid); // Set the kelasid parameter
-        statement.setInt(8, quizid);  // Set the kuisid parameter
+                int affectedRows = insertStatement.executeUpdate();
 
-        int affectedRows = statement.executeUpdate();
+                if (affectedRows == 0) {
+                    throw new SQLException("Creating question failed, no rows affected.");
+                }
 
-        if (affectedRows == 0) {
-            throw new SQLException("Creating question failed, no rows affected.");
-        }
+                try (ResultSet generatedKeys = insertStatement.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        int id = generatedKeys.getInt(1);
+                        question.setId(id);
+                        return id;
+                    } else {
+                        throw new SQLException("Creating question failed, no ID obtained.");
+                    }
+                }
 
-        try (ResultSet generatedKeys = statement.getGeneratedKeys()) {
-            if (generatedKeys.next()) {
-                int id = generatedKeys.getInt(1);
-                question.setId(id);  // Set the generated ID to the question
-                return id;
-            } else {
-                throw new SQLException("Creating question failed, no ID obtained.");
+            } catch (SQLException e) {
+                e.printStackTrace(); 
+                return -1; 
             }
         }
-
-    } catch (SQLException e) {
-        e.printStackTrace();  // Handle the exception appropriately
-        return -1; // or throw an exception
-    }
-}
-
     }
     
-       private void setupListeners() {
-            jButton1.addActionListener(new ActionListener() {
+    private void setupListeners() {
+        jButton1.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent evt) {
                 addQuestion();
                 }
             });
-            jButton2.addActionListener(new ActionListener() {
+        jButton2.addActionListener(new ActionListener() {
                 @Override
-                public void actionPerformed(ActionEvent evt) {
-                    openEditSoalDosen();
+            public void actionPerformed(ActionEvent evt) {
+                openEditSoalDosen();
                 }
-            });
-            
-            
+            });       
     }
      
-     private void addQuestion() {
+    private void addQuestion() {
         String questionText = jTextField1.getText();
         String optionA = jTextField2.getText();
         String optionB = jTextField3.getText();
@@ -137,38 +149,37 @@ public class TambahSoalDosen extends javax.swing.JFrame {
         String optionD = jTextField5.getText();
         String correctAnswer = jComboBox1.getSelectedItem().toString();
 
-        // Check if all fields are filled
         if (questionText.isEmpty() || optionA.isEmpty() || optionB.isEmpty() || optionC.isEmpty() || optionD.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please fill in all fields", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        // Create a new Question object
-        Question newQuestion = new Question(0, questionText, optionA + "|" + optionB + "|" + optionC + "|" + optionD, correctAnswer, kelasid, quizid);
+        Question newQuestion = new Question(0, questionText, optionA + "|" + optionB + "|" + optionC + "|" + optionD, correctAnswer, kelasid, quizid, 0); // Nomorsoal will be set in the insertQuestion method
 
-        // Insert the new question into the database
-        int id = dbConnector.insertQuestion(newQuestion);
+        int nomorsoal = dbConnector.insertQuestion(newQuestion);
 
-        if (id != -1) {
-            newQuestion.setId(id);
+        if (nomorsoal != -1) {
+            newQuestion.setNomorsoal(nomorsoal); 
+            newQuestion.setId(nomorsoal);
             clearFields();
         }
     }
+
     private void updateQuestion() {
-    if (selectedQuestion != null) {
-        selectedQuestion.setQuestionText(jTextField1.getText());
-        String answerOptions = String.join("|", jTextField2.getText(), jTextField3.getText(), jTextField4.getText(), jTextField5.getText());
-        selectedQuestion.setAnswerOptions(answerOptions);
-        selectedQuestion.setCorrectAnswer(jComboBox1.getSelectedItem().toString());
+        if (selectedQuestion != null) {
+            selectedQuestion.setQuestionText(jTextField1.getText());
+            String answerOptions = String.join("|", jTextField2.getText(), jTextField3.getText(), jTextField4.getText(), jTextField5.getText());
+            selectedQuestion.setAnswerOptions(answerOptions);
+            selectedQuestion.setCorrectAnswer(jComboBox1.getSelectedItem().toString());
 
-        int id = dbConnector.insertQuestion(selectedQuestion);
+            int id = dbConnector.insertQuestion(selectedQuestion);
 
-        if (id != -1) {
-            selectedQuestion.setId(id);
-            clearFields();
+            if (id != -1) {
+                selectedQuestion.setId(id);
+                clearFields();
+            }
         }
     }
-}
     
     private void clearFields() {
         jTextField1.setText("");
@@ -181,7 +192,7 @@ public class TambahSoalDosen extends javax.swing.JFrame {
     }
     
     private void openEditSoalDosen() {
-    // Disini kita membuat instance dari EditSoalDosen.java dan menampilkannya
+    
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
                 TambahSoalDosen.this.dispose();
@@ -191,12 +202,7 @@ public class TambahSoalDosen extends javax.swing.JFrame {
     }
 
     public static void main(String args[]) {
-//        java.awt.EventQueue.invokeLater(new Runnable() {
-//            public void run() {
-//                
-//                new TambahSoalDosen(kelasid, quizid).setVisible(true);
-//            }
-//        });
+
     }
     
     /**
@@ -217,12 +223,14 @@ public class TambahSoalDosen extends javax.swing.JFrame {
         jTextField5 = new javax.swing.JTextField();
         jComboBox1 = new javax.swing.JComboBox<>();
         jButton2 = new javax.swing.JButton();
+        jLabel1 = new javax.swing.JLabel();
+        jLabel2 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
         jButton1.setText("Tambah");
 
-        jTextField1.setText("Pertanyaan");
+        jTextField1.setText("Isi pertanyaan disini");
         jTextField1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jTextField1ActionPerformed(evt);
@@ -249,51 +257,65 @@ public class TambahSoalDosen extends javax.swing.JFrame {
 
         jComboBox1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Opsi A", "Opsi B", "Opsi C", "Opsi D" }));
 
-        jButton2.setText("<-");
+        jButton2.setText("Back");
+
+        jLabel1.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        jLabel1.setText("TAMBAH SOAL");
+
+        jLabel2.setText("Opsi yang benar");
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap(35, Short.MAX_VALUE)
+                .addGap(44, 44, 44)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jButton2)
-                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jButton2)
+                        .addGap(31, 31, 31)
+                        .addComponent(jLabel1))
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                         .addGroup(layout.createSequentialGroup()
-                            .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(jButton1))
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(jTextField4, javax.swing.GroupLayout.PREFERRED_SIZE, 122, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(jTextField5, javax.swing.GroupLayout.PREFERRED_SIZE, 122, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, 122, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGap(96, 96, 96)
+                            .addComponent(jLabel2))
+                        .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, 297, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jButton1)
                         .addGroup(layout.createSequentialGroup()
-                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, 122, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(jTextField3, javax.swing.GroupLayout.PREFERRED_SIZE, 122, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(jTextField4, javax.swing.GroupLayout.PREFERRED_SIZE, 122, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(jTextField5, javax.swing.GroupLayout.PREFERRED_SIZE, 122, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGap(175, 175, 175))
-                        .addComponent(jTextField1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 231, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(63, Short.MAX_VALUE))
+                            .addComponent(jTextField3, javax.swing.GroupLayout.PREFERRED_SIZE, 122, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addGap(119, 119, 119)
+                            .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                .addContainerGap(54, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jButton2)
-                .addGap(29, 29, 29)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel1)
+                    .addComponent(jButton2))
+                .addGap(44, 44, 44)
                 .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel2))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jTextField3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jTextField3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jTextField4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jTextField5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 35, Short.MAX_VALUE)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jButton1)
-                    .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(42, 42, 42))
+                .addComponent(jButton1)
+                .addGap(22, 22, 22))
         );
 
         pack();
@@ -321,6 +343,8 @@ public class TambahSoalDosen extends javax.swing.JFrame {
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
     private javax.swing.JComboBox<String> jComboBox1;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel2;
     private javax.swing.JTextField jTextField1;
     private javax.swing.JTextField jTextField2;
     private javax.swing.JTextField jTextField3;
