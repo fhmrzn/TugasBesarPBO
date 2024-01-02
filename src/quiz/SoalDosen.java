@@ -1,3 +1,7 @@
+package quiz;
+
+import quiz.Quiz;
+import quiz.Question;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;

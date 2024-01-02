@@ -1,3 +1,5 @@
+package quiz;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -5,6 +7,8 @@ import javax.swing.*;
 import java.awt.event.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import quiz.EditSoalDosen;
+import quiz.TambahSoalDosen;
 
 /**
  *
@@ -14,9 +18,10 @@ public class Quiz extends javax.swing.JFrame {
 
     private DatabaseConnector dbConnector;
     private Classroom selectedClassroom;
+    private int kelasid;
     private Quiz selectedQuiz;
-    private String quizName;
-    private int quizId;
+    private String kuisnama;
+    private int quizid;
     
     public Quiz() {
         initComponents();
@@ -84,23 +89,29 @@ public class Quiz extends javax.swing.JFrame {
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addGap(27, 27, 27)
+                .addGap(28, 28, 28)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 112, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel1))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 119, Short.MAX_VALUE)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 112, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel2)
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(27, 27, 27)
-                        .addComponent(jButton1)))
-                .addGap(30, 30, 30))
+                        .addGap(43, 43, 43)
+                        .addComponent(jLabel1)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 117, Short.MAX_VALUE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 112, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(31, 31, 31))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addComponent(jLabel2)
+                        .addGap(75, 75, 75))))
+            .addGroup(layout.createSequentialGroup()
+                .addGap(172, 172, 172)
+                .addComponent(jButton1)
+                .addGap(0, 0, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGap(23, 23, 23)
+                .addGap(49, 49, 49)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(jLabel1)
                     .addComponent(jLabel2))
@@ -108,17 +119,20 @@ public class Quiz extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(44, 44, 44)
+                .addGap(32, 32, 32)
                 .addComponent(jButton1)
-                .addContainerGap(55, Short.MAX_VALUE))
+                .addContainerGap(41, Short.MAX_VALUE))
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-         System.out.println("Selected Class: " + selectedClassroom.getClassName());
-        System.out.println("Selected Quiz: " + selectedQuiz.getQuizName());
+        java.awt.EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                openEditSoalDosen(kelasid, quizid );
+            }
+        });
     }//GEN-LAST:event_jButton1ActionPerformed
 
 
@@ -130,14 +144,14 @@ public class Quiz extends javax.swing.JFrame {
 
             List<Classroom> classrooms = new ArrayList<>();
             while (resultSet.next()) {
-                int classId = resultSet.getInt("kelasid");
+                kelasid = resultSet.getInt("kelasid");
                 String className = resultSet.getString("namakelas");
-                classrooms.add(new Classroom(classId, className));
+                classrooms.add(new Classroom(kelasid, className));
             }
 
             DefaultListModel<String> classListModel = new DefaultListModel<>();
             for (Classroom classroom : classrooms) {
-                classListModel.addElement(classroom.getClassName());
+                classListModel.addElement(classroom.getKelasnama());
             }
             jList1.setModel(classListModel);
 
@@ -161,19 +175,19 @@ public class Quiz extends javax.swing.JFrame {
         try {
             Connection connection = dbConnector.getConnection();
             Statement statement = connection.createStatement();
-            String query = "SELECT * FROM kuis WHERE kelasid = " + selectedClassroom.getClassId();
+            String query = "SELECT * FROM kuis WHERE kelasid = " + selectedClassroom.getKelasid();
             ResultSet resultSet = statement.executeQuery(query);
 
             List<Quiz> quizzes = new ArrayList<>();
             while (resultSet.next()) {
-                int quizId = resultSet.getInt("kuisid");
-                String quizName = resultSet.getString("namakuis");
-                quizzes.add(new Quiz(quizId, quizName));
+                quizid = resultSet.getInt("kuisid");
+                String kuisnama = resultSet.getString("namakuis");
+                quizzes.add(new Quiz(quizid, kuisnama));
             }
 
             DefaultListModel<String> quizListModel = new DefaultListModel<>();
             for (Quiz quiz : quizzes) {
-                quizListModel.addElement(quiz.getQuizName());
+                quizListModel.addElement(quiz.getKuisNama());
             }
             jList2.setModel(quizListModel);
 
@@ -191,29 +205,23 @@ public class Quiz extends javax.swing.JFrame {
             e.printStackTrace();
         }
     }
+    
+    private void openEditSoalDosen(int kelasid, int quizid) {
+        java.awt.EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                Quiz.this.dispose();
+                new EditSoalDosen(kelasid, quizid).setVisible(true);
+            }
+        });
+    }
+
      
     public static void main(String args[]) {
         /* Set the Nimbus look and feel */
         //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
         /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
          * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(Quiz.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(Quiz.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(Quiz.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(Quiz.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
+         
         //</editor-fold>
 
         /* Create and display the form */
@@ -237,31 +245,36 @@ public class Quiz extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane2;
     // End of variables declaration//GEN-END:variables
     
-    public Quiz(int quizId, String quizName) {
-            this.quizId = quizId;
-            this.quizName = quizName;
+    public Quiz(int quizid, String kuisnama) {
+            this.quizid = quizid;
+            this.kuisnama = kuisnama;
+        }
+    
+        public int getQuizId() {
+            return quizid;
         }
 
-        public String getQuizName() {
-            return quizName;
-        }
+        public String getKuisNama() {
+            return kuisnama;
+         }
+        
     }
 
     // Kelas untuk merepresentasikan kelas
     class Classroom {
-        int classId;
-        String className;
+        int kelasid;
+        String kelasnama;
 
-        public Classroom(int classId, String className) {
-            this.classId = classId;
-            this.className = className;
-        }
+    public Classroom(int kelasid, String kelasnama) {
+        this.kelasid = kelasid;
+        this.kelasnama = kelasnama;
+    }
 
-        public String getClassName() {
-            return className;
-        }
+    public int getKelasid() {
+        return kelasid;
+    }
 
-        public int getClassId() {
-            return classId;
-        }
+    public String getKelasnama() {
+        return kelasnama;
+    }
 }

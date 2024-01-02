@@ -1,3 +1,5 @@
+package quiz;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -5,7 +7,6 @@ import javax.swing.*;
 import java.awt.event.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-
 /**
  *
  * @author fhmrz
@@ -15,10 +16,15 @@ public class EditSoalDosen extends javax.swing.JFrame {
     private DatabaseConnector dbConnector;
     private Question selectedQuestion;
     private String Question;
+    private int kelasid;
+    private int quizid;
     
-    public EditSoalDosen() {
+    
+    public EditSoalDosen(int kelasid, int quizid) {
         initComponents();
         dbConnector = new DatabaseConnector();
+        this.kelasid = kelasid;
+        this.quizid = quizid;
         setupListeners();
         loadQuestions();
     }
@@ -30,31 +36,38 @@ public class EditSoalDosen extends javax.swing.JFrame {
     private static final String DB_PASSWORD = "";
 
     // SQL query to retrieve all questions
-    private static final String GET_ALL_QUESTIONS_QUERY = "SELECT soalid, pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar FROM soal";
+    private static final String GET_ALL_QUESTIONS_QUERY = "SELECT soalid, pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar, kelasid, kuisid FROM soal WHERE kuisid = ? AND kelasid = ?";
+
 
      // SQL query to update a question
-    private static final String UPDATE_QUESTION_QUERY = "UPDATE soal SET pertanyaan = ?, opsia = ?, opsib = ?, opsic = ?, opsid = ?, jawabanbenar = ? WHERE soalid = ?";
+    private static final String UPDATE_QUESTION_QUERY = "UPDATE soal SET pertanyaan = ?, opsia = ?, opsib = ?, opsic = ?, opsid = ?, jawabanbenar = ?, kuisid = ?, kelasid = ? WHERE soalid = ?";
 
     // Method to get all questions from the database
-    public List<Question> getAllQuestions() {
+    public List<Question> getAllQuestions(int quizid, int kelasid) {
         List<Question> questionList = new ArrayList<>();
 
         try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-             PreparedStatement statement = connection.prepareStatement(GET_ALL_QUESTIONS_QUERY);
-             ResultSet resultSet = statement.executeQuery()) {
+             PreparedStatement statement = connection.prepareStatement(GET_ALL_QUESTIONS_QUERY)) {
 
-            while (resultSet.next()) {
-                int id = resultSet.getInt("soalid");
-                String questionText = resultSet.getString("pertanyaan");
-                String answerOptions = String.join("|", 
-                        resultSet.getString("opsia"), 
-                        resultSet.getString("opsib"), 
-                        resultSet.getString("opsic"), 
-                        resultSet.getString("opsid"));
-                String correctAnswer = resultSet.getString("jawabanbenar");
+            statement.setInt(1, quizid);
+            statement.setInt(2, kelasid);
 
-                Question question = new Question(id, questionText, answerOptions, correctAnswer);
-                questionList.add(question);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    int id = resultSet.getInt("soalid");
+                    String questionText = resultSet.getString("pertanyaan");
+                    String answerOptions = String.join("|", 
+                            resultSet.getString("opsia"), 
+                            resultSet.getString("opsib"), 
+                            resultSet.getString("opsic"), 
+                            resultSet.getString("opsid"));
+                    String correctAnswer = resultSet.getString("jawabanbenar");
+                    int kelasId = resultSet.getInt("kelasid");
+                    int quizId = resultSet.getInt("kuisid");
+
+                    Question question = new Question(id, questionText, answerOptions, correctAnswer, kelasId, quizId);
+                    questionList.add(question);
+                }
             }
 
         } catch (SQLException e) {
@@ -74,7 +87,9 @@ public class EditSoalDosen extends javax.swing.JFrame {
             statement.setString(4, answerOptions[2]);
             statement.setString(5, answerOptions[3]);
             statement.setString(6, question.getCorrectAnswer());
-            statement.setInt(7, question.getId());
+            statement.setInt(7, question.getQuizid());
+            statement.setInt(8, question.getKelasid());
+            statement.setInt(9, question.getId());
 
             statement.executeUpdate();
 
@@ -93,22 +108,26 @@ public class EditSoalDosen extends javax.swing.JFrame {
         });
 
         jButton1.addActionListener(new ActionListener() {
-            @Override
             public void actionPerformed(ActionEvent evt) {
                 updateQuestion();
             }
         });
         
         jButton2.addActionListener(new ActionListener() {
-            @Override
             public void actionPerformed(ActionEvent evt) {
                 openTambahSoalDosen();
+            }
+        });
+        
+        jButton3.addActionListener(new ActionListener(){
+            public void actionPerformed(ActionEvent evt) {
+                openQuiz();
             }
         });
     }
 
     private void loadQuestions() {
-        List<Question> questionList = dbConnector.getAllQuestions();
+        List<Question> questionList = dbConnector.getAllQuestions(quizid, kelasid);
         DefaultListModel<String> model = new DefaultListModel<>();
 
         for (Question question : questionList) {
@@ -121,7 +140,7 @@ public class EditSoalDosen extends javax.swing.JFrame {
         int selectedIndex = jList1.getSelectedIndex();
 
         if (selectedIndex != -1) {
-            selectedQuestion = dbConnector.getAllQuestions().get(selectedIndex);
+            selectedQuestion = dbConnector.getAllQuestions(quizid, kelasid).get(selectedIndex);
 
             jTextField1.setText(selectedQuestion.getQuestionText());
             String[] answerOptions = selectedQuestion.getAnswerOptions().split("\\|");
@@ -162,17 +181,27 @@ public class EditSoalDosen extends javax.swing.JFrame {
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
                 new TambahSoalDosen().setVisible(true);
-                new EditSoalDosen().setVisible(false);
             }
         });
     }
 
-    public static void main(String args[]) {
+    private void openQuiz(){
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new EditSoalDosen().setVisible(true);
+                EditSoalDosen.this.dispose();
+                new Quiz().setVisible(true);
             }
         });
+    }
+    public static void main(String args[]) {
+//        java.awt.EventQueue.invokeLater(new Runnable() {
+//            @Override
+//            public void run() {
+//                int kelasid = 1;
+//                int quizid = 1;
+//                new EditSoalDosen(kelasid, quizid).setVisible(true);
+//            }
+//        });
     }
     
     /**
@@ -195,6 +224,7 @@ public class EditSoalDosen extends javax.swing.JFrame {
         jTextField5 = new javax.swing.JTextField();
         jComboBox1 = new javax.swing.JComboBox<>();
         jButton2 = new javax.swing.JButton();
+        jButton3 = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -243,6 +273,8 @@ public class EditSoalDosen extends javax.swing.JFrame {
             }
         });
 
+        jButton3.setText("<-");
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -251,10 +283,10 @@ public class EditSoalDosen extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(layout.createSequentialGroup()
                         .addGap(46, 46, 46)
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createSequentialGroup()
-                                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
                                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                                     .addComponent(jTextField5, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 122, Short.MAX_VALUE)
                                     .addComponent(jTextField4, javax.swing.GroupLayout.Alignment.LEADING)
@@ -263,19 +295,25 @@ public class EditSoalDosen extends javax.swing.JFrame {
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                 .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addGroup(layout.createSequentialGroup()
-                                .addGap(79, 79, 79)
-                                .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, 231, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                                .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, 231, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(0, 36, Short.MAX_VALUE))))
                     .addGroup(layout.createSequentialGroup()
                         .addGap(38, 38, 38)
                         .addComponent(jButton2)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(jButton1)))
                 .addContainerGap(39, Short.MAX_VALUE))
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jButton3)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGap(63, 63, 63)
+                .addContainerGap()
+                .addComponent(jButton3)
+                .addGap(29, 29, 29)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(layout.createSequentialGroup()
@@ -329,6 +367,7 @@ public class EditSoalDosen extends javax.swing.JFrame {
     private javax.swing.ButtonGroup buttonGroup1;
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
+    private javax.swing.JButton jButton3;
     private javax.swing.JComboBox<String> jComboBox1;
     private javax.swing.JList<String> jList1;
     private javax.swing.JScrollPane jScrollPane1;
@@ -346,14 +385,18 @@ class Question {
     private String questionText;
     private String answerOptions;
     private String correctAnswer;
+    private int kelasid;
+    private int quizid;
 
-    public Question(int id, String questionText, String answerOptions, String correctAnswer) {
+    public Question(int id, String questionText, String answerOptions, String correctAnswer, int kelasid, int quizid) {
         this.id = id;
         this.questionText = questionText;
         this.answerOptions = answerOptions;
         this.correctAnswer = correctAnswer;
+        this.kelasid = kelasid;
+        this.quizid = quizid;
     }
-
+    
     public int getId() {
         return id;
     }
@@ -390,4 +433,20 @@ class Question {
     public void setId(int id) {
         this.id = id;
     }
+
+    public int getKelasid() {
+        return kelasid;
+    }
+
+    public void setKelasid(int kelasid) {
+        this.kelasid = kelasid;
+    }
+
+    public int getQuizid() {
+        return quizid;
+    }
+
+    public void setQuizid(int quizid) {
+        this.quizid = quizid;
+    } 
 }

@@ -1,3 +1,4 @@
+import quiz.Quiz;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -143,7 +144,4 @@ public class Soal extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane1;
     // End of variables declaration//GEN-END:variables
 
-    class Pertanyaan{
-        
-    }
 }
