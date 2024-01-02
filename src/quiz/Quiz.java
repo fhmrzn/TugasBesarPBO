@@ -128,9 +128,10 @@ public class Quiz extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+                                   
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                openEditSoalDosen(kelasid, quizid );
+                openEditSoalDosen(selectedClassroom.getKelasid(), selectedQuiz.getQuizId());
             }
         });
     }//GEN-LAST:event_jButton1ActionPerformed
@@ -214,6 +215,7 @@ public class Quiz extends javax.swing.JFrame {
             }
         });
     }
+
 
      
     public static void main(String args[]) {

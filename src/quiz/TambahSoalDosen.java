@@ -17,9 +17,15 @@ public class TambahSoalDosen extends javax.swing.JFrame {
     private DatabaseConnector dbConnector;
     private Question selectedQuestion;
     private String Question;
+    private int kelasid;
+    private int quizid;
     
-    public TambahSoalDosen() {
+    
+    
+    public TambahSoalDosen(int kelasid, int quizid) {
         initComponents();
+        this.kelasid = kelasid;
+        this.quizid = quizid;
         dbConnector = new DatabaseConnector();
         setupListeners();
     }
@@ -30,39 +36,44 @@ public class TambahSoalDosen extends javax.swing.JFrame {
     private static final String DB_USER = "root";
     private static final String DB_PASSWORD = "";
 
-    // SQL query to retrieve all questions
-    private static final String GET_ALL_QUESTIONS_QUERY = "SELECT soalid, pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar FROM soal";
+    private static final String GET_ALL_QUESTIONS_QUERY = "SELECT soalid, pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar FROM soal WHERE kuisid = ? AND kelasid = ?";
 
-    // SQL query to insert a new question
-    private static final String INSERT_QUESTION_QUERY = "INSERT INTO soal (pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar) VALUES (?, ?, ?, ?, ?, ?)";
-    // Method to get all questions from the database
-    public List<Question> getAllQuestions() {
+    private static final String INSERT_QUESTION_QUERY = "INSERT INTO soal (pertanyaan, opsia, opsib, opsic, opsid, jawabanbenar, kelasid, kuisid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+// Method to get all questions from the database
+    public List<Question> getAllQuestions(int quizid, int kelasid) {
         List<Question> questionList = new ArrayList<>();
 
         try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-             PreparedStatement statement = connection.prepareStatement(GET_ALL_QUESTIONS_QUERY);
-             ResultSet resultSet = statement.executeQuery()) {
+             PreparedStatement statement = connection.prepareStatement(GET_ALL_QUESTIONS_QUERY)) {
 
-            while (resultSet.next()) {
-                int id = resultSet.getInt("soalid");
-                String questionText = resultSet.getString("pertanyaan");
-                String answerOptions = String.join("|", 
-                        resultSet.getString("opsia"), 
-                        resultSet.getString("opsib"), 
-                        resultSet.getString("opsic"), 
-                        resultSet.getString("opsid"));
-                String correctAnswer = resultSet.getString("jawabanbenar");
+            statement.setInt(1, quizid);
+            statement.setInt(2, kelasid);
 
-                Question question = new Question(id, questionText, answerOptions, correctAnswer);
-                questionList.add(question);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    int id = resultSet.getInt("soalid");
+                    String questionText = resultSet.getString("pertanyaan");
+                    String answerOptions = String.join("|",
+                            resultSet.getString("opsia"),
+                            resultSet.getString("opsib"),
+                            resultSet.getString("opsic"),
+                            resultSet.getString("opsid"));
+                    String correctAnswer = resultSet.getString("jawabanbenar");
+                    int kelasId = resultSet.getInt("kelasid");
+                    int quizId = resultSet.getInt("kuisid");
+
+                    Question question = new Question(id, questionText, answerOptions, correctAnswer, kelasId, quizId);
+                    questionList.add(question);
+                }
             }
 
         } catch (SQLException e) {
             e.printStackTrace();  // Handle the exception appropriately
         }
 
-        return questionList;
+        return questionList;  // Added this line
     }
+        
     public int insertQuestion(Question question) {
     try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
          PreparedStatement statement = connection.prepareStatement(INSERT_QUESTION_QUERY, Statement.RETURN_GENERATED_KEYS)) {
@@ -74,6 +85,8 @@ public class TambahSoalDosen extends javax.swing.JFrame {
         statement.setString(4, answerOptions[2]);
         statement.setString(5, answerOptions[3]);
         statement.setString(6, question.getCorrectAnswer());
+        statement.setInt(7, kelasid); // Set the kelasid parameter
+        statement.setInt(8, quizid);  // Set the kuisid parameter
 
         int affectedRows = statement.executeUpdate();
 
@@ -96,6 +109,7 @@ public class TambahSoalDosen extends javax.swing.JFrame {
         return -1; // or throw an exception
     }
 }
+
     }
     
        private void setupListeners() {
@@ -130,7 +144,7 @@ public class TambahSoalDosen extends javax.swing.JFrame {
         }
 
         // Create a new Question object
-        Question newQuestion = new Question(0, questionText, optionA + "|" + optionB + "|" + optionC + "|" + optionD, correctAnswer);
+        Question newQuestion = new Question(0, questionText, optionA + "|" + optionB + "|" + optionC + "|" + optionD, correctAnswer, kelasid, quizid);
 
         // Insert the new question into the database
         int id = dbConnector.insertQuestion(newQuestion);
@@ -170,18 +184,19 @@ public class TambahSoalDosen extends javax.swing.JFrame {
     // Disini kita membuat instance dari EditSoalDosen.java dan menampilkannya
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new TambahSoalDosen().setVisible(false);
-                new EditSoalDosen().setVisible(true);
+                TambahSoalDosen.this.dispose();
+                new EditSoalDosen(kelasid, quizid).setVisible(true);
             }
         });
     }
 
     public static void main(String args[]) {
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new TambahSoalDosen().setVisible(true);
-            }
-        });
+//        java.awt.EventQueue.invokeLater(new Runnable() {
+//            public void run() {
+//                
+//                new TambahSoalDosen(kelasid, quizid).setVisible(true);
+//            }
+//        });
     }
     
     /**

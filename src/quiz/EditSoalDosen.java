@@ -180,7 +180,7 @@ public class EditSoalDosen extends javax.swing.JFrame {
     private void openTambahSoalDosen(){
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new TambahSoalDosen().setVisible(true);
+                new TambahSoalDosen(kelasid, quizid).setVisible(true);
             }
         });
     }
