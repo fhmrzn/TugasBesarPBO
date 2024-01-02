@@ -406,8 +406,8 @@ public class ListKelas extends javax.swing.JFrame {
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         String className = jTextField1.getText();
         int admin_id = Integer.parseInt(jTextField2.getText());
-        int lecturer_id = Integer.parseInt(jTextField2.getText());
-        int student_id = Integer.parseInt(jTextField2.getText());
+        int lecturer_id = Integer.parseInt(jTextField3.getText());
+        int student_id = Integer.parseInt(jTextField4.getText());
        
         try {
             Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
